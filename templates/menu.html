@@ -39,6 +39,18 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .search-container {
+            max-width: 600px;
+            margin: 0 auto 2rem;
+            display: flex;
+            gap: 10px;
+        }
+        .search-container input {
+            flex: 1;
+            padding: 0.8rem;
+            border-radius: 50px;
+            border: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
@@ -76,6 +88,11 @@
             <h2>Our Full Menu</h2>
             <p>Select from our range of delicious meals.</p>
         </div>
+
+        <form action="{{ url_for('menu') }}" method="GET" class="search-container">
+            <input type="text" name="q" placeholder="Search (e.g. kuku, fries, meat...)" value="{{ query or '' }}">
+            <button type="submit" class="btn btn-primary" style="border-radius: 50px;">Search</button>
+        </form>
 
         <div class="filter-container">
             <button class="filter-btn active" onclick="filterMenu('all')">All</button>

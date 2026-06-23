@@ -8,6 +8,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from models import db, User, Order, OrderItem, Product, Setting
 from functools import wraps
 from dotenv import load_dotenv
+from sqlalchemy import or_
 
 load_dotenv()
 
@@ -16,13 +17,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_change_me')
 
-# Enable CSRF Protection
 csrf = CSRFProtect(app)
-
-# Database Initialization
 db.init_app(app)
 
-# Login Management
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)
@@ -31,7 +28,26 @@ login_manager.init_app(app)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Role-based Access Control
+# Intelligent Search Alias Mapping
+SYNONYMS = {
+    "kuku": ["chicken", "poultry", "roast"],
+    "chips": ["fries", "potatoes", "fried"],
+    "fries": ["chips", "potatoes"],
+    "kima": ["liver", "gizzards"],
+    "meat": ["chicken", "wings", "drumstick", "liver", "gizzards", "neck"],
+    "starchy": ["chips", "fries"],
+    "poultry": ["chicken", "kuku"]
+}
+
+def get_search_terms(query):
+    query = query.lower().strip()
+    terms = {query}
+    for key, values in SYNONYMS.items():
+        if query == key or query in values:
+            terms.add(key)
+            terms.update(values)
+    return list(terms)
+
 def role_required(roles):
     if isinstance(roles, str):
         roles = [roles]
@@ -44,18 +60,17 @@ def role_required(roles):
         return decorated_function
     return decorator
 
-# Seeding Data
 def seed_data():
     if Product.query.first() is None:
         products = [
-            Product(name='Full Roast Chicken', price=800, category='chicken', image_url='images/kuku full.jpg'),
-            Product(name='Drumstick (1kg)', price=550, category='chicken', image_url='images/drumstick.jpg'),
-            Product(name='Chicken Wings (1kg)', price=600, category='chicken', image_url='images/chicken wings.jpg'),
-            Product(name='Gizzards (Portion)', price=250, category='chicken', image_url='images/gizzards.png'),
-            Product(name='Chicken Liver', price=200, category='chicken', image_url='images/liver.png'),
-            Product(name='Chicken Neck', price=150, category='chicken', image_url='images/neck.png'),
-            Product(name='Golden Chips (Large)', price=150, category='sides', image_url='images/chips.jpg'),
-            Product(name='Smokes', price=50, category='sides', image_url='images/smokes.jpg'),
+            Product(name='Full Roast Chicken', price=800, category='chicken', image_url='images/kuku full.jpg', tags='kuku, chicken, roast, meal, family'),
+            Product(name='Drumstick (1kg)', price=550, category='chicken', image_url='images/drumstick.jpg', tags='kuku, chicken, leg, meat'),
+            Product(name='Chicken Wings (1kg)', price=600, category='chicken', image_url='images/chicken wings.jpg', tags='kuku, chicken, wings, snack'),
+            Product(name='Gizzards (Portion)', price=250, category='chicken', image_url='images/gizzards.png', tags='kuku, gizzards, kima, offal'),
+            Product(name='Chicken Liver', price=200, category='chicken', image_url='images/liver.png', tags='kuku, liver, kima, offal'),
+            Product(name='Chicken Neck', price=150, category='chicken', image_url='images/neck.png', tags='kuku, neck, meat'),
+            Product(name='Golden Chips (Large)', price=150, category='sides', image_url='images/chips.jpg', tags='fries, potatoes, starchy, side'),
+            Product(name='Smokes', price=50, category='sides', image_url='images/smokes.jpg', tags='sausage, snack, side'),
         ]
         db.session.bulk_save_objects(products)
 
@@ -69,7 +84,6 @@ def seed_data():
         )
         db.session.add(super_admin)
 
-        # Add a normal Admin
         admin = User(
             first_name="Store",
             last_name="Manager",
@@ -94,8 +108,20 @@ def index():
 
 @app.route('/menu')
 def menu():
-    products = Product.query.filter_by(is_active=True).all()
-    return render_template('menu.html', products=products)
+    query = request.args.get('q', '').strip()
+    if query:
+        search_terms = get_search_terms(query)
+        filters = []
+        for term in search_terms:
+            filters.append(Product.name.contains(term))
+            filters.append(Product.category.contains(term))
+            filters.append(Product.tags.contains(term))
+
+        products = Product.query.filter(Product.is_active == True).filter(or_(*filters)).all()
+    else:
+        products = Product.query.filter_by(is_active=True).all()
+
+    return render_template('menu.html', products=products, query=query)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -206,8 +232,6 @@ def checkout():
 
     return render_template('checkout.html')
 
-# --- DASHBOARDS ---
-
 @app.route('/dashboard')
 @login_required
 def user_dashboard():
@@ -231,8 +255,6 @@ def update_status(order_id):
         flash(f'Order #{order_id} updated.')
     return redirect(url_for('admin_orders'))
 
-# --- SUPER ADMIN ---
-
 @app.route('/super-admin')
 @role_required('SuperAdmin')
 def super_admin():
@@ -248,6 +270,7 @@ def add_product():
         price=float(request.form.get('price')),
         category=request.form.get('category'),
         image_url=request.form.get('image_url'),
+        tags=request.form.get('tags'),
         description=request.form.get('description')
     )
     db.session.add(new_product)

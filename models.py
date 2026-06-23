@@ -22,12 +22,13 @@ class Product(db.Model):
     category = db.Column(db.String(50), nullable=False)
     image_url = db.Column(db.String(255), nullable=True)
     description = db.Column(db.Text, nullable=True)
+    tags = db.Column(db.String(255), nullable=True) # Semantic keywords, comma-separated
     is_active = db.Column(db.Boolean, default=True)
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    first_name = db.Column(db.String(100), nullable=False) # Delivery name
+    first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(20), nullable=False)
