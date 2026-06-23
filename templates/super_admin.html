@@ -10,40 +10,42 @@
         .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: var(--shadow); }
         .form-group { margin-bottom: 1rem; }
         .form-group label { display: block; font-weight: bold; }
-        .form-group input, .form-group textarea { width: 100%; padding: 0.5rem; }
+        .form-group input { width: 100%; padding: 0.5rem; }
         table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
         th, td { border-bottom: 1px solid #eee; padding: 0.8rem; text-align: left; }
+        .role-badge { padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; background: #eee; }
     </style>
 </head>
 <body>
     <nav class="navbar">
         <div class="logo">Super Admin Panel</div>
-        <a href="{{ url_for('index') }}">View Site</a>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('admin_orders') }}">Admin Dashboard</a></li>
+            <li><a href="{{ url_for('index') }}">View Site</a></li>
+        </ul>
     </nav>
 
     <div class="admin-grid">
-        <!-- Product Management -->
+        <!-- User Management -->
         <div class="card">
-            <h3>Manage Products</h3>
-            <form action="{{ url_for('add_product') }}" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="form-group"><label>Name</label><input type="text" name="name" required></div>
-                <div class="form-group"><label>Price</label><input type="number" name="price" required></div>
-                <div class="form-group"><label>Category</label><input type="text" name="category" required></div>
-                <div class="form-group"><label>Image URL</label><input type="text" name="image_url"></div>
-                <div class="form-group"><label>Tags (comma separated)</label><input type="text" name="tags"></div>
-                <div class="form-group"><label>Description</label><textarea name="description"></textarea></div>
-                <button type="submit" class="btn btn-primary">Add Product</button>
-            </form>
-
+            <h3>User Management</h3>
             <table>
-                <thead><tr><th>Name</th><th>Price</th><th>Active</th></tr></thead>
+                <thead><tr><th>Name</th><th>Role</th><th>Action</th></tr></thead>
                 <tbody>
-                    {% for product in products %}
+                    {% for user in users %}
                     <tr>
-                        <td>{{ product.name }}</td>
-                        <td>{{ product.price }}</td>
-                        <td>{{ product.is_active }}</td>
+                        <td>{{ user.first_name }} ({{ user.email }})</td>
+                        <td><span class="role-badge">{{ user.role }}</span></td>
+                        <td>
+                            <form action="{{ url_for('update_user_role', user_id=user.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <select name="role" onchange="this.form.submit()">
+                                    <option value="Customer" {% if user.role == 'Customer' %}selected{% endif %}>Customer</option>
+                                    <option value="Admin" {% if user.role == 'Admin' %}selected{% endif %}>Admin</option>
+                                    <option value="SuperAdmin" {% if user.role == 'SuperAdmin' %}selected{% endif %}>SuperAdmin</option>
+                                </select>
+                            </form>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -52,10 +54,10 @@
 
         <!-- Settings Management -->
         <div class="card">
-            <h3>API Keys & Settings</h3>
+            <h3>System Settings & API Keys</h3>
             <form action="{{ url_for('update_setting') }}" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="form-group"><label>Key Name (e.g. MPESA_API_KEY)</label><input type="text" name="key" required></div>
+                <div class="form-group"><label>Key Name</label><input type="text" name="key" required></div>
                 <div class="form-group"><label>Value</label><input type="text" name="value" required></div>
                 <button type="submit" class="btn btn-primary">Save Setting</button>
             </form>

@@ -7,71 +7,45 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
-        .admin-nav {
-            background: white;
-            padding: 1rem 5%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: var(--shadow);
-        }
-        .orders-container {
-            padding: 3rem 5%;
-        }
-        .order-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-        }
-        .order-table th {
-            background: var(--primary);
-            color: white;
-            padding: 1.2rem;
-            text-align: left;
-        }
-        .order-table td {
-            padding: 1.2rem;
-            border-bottom: 1px solid #eee;
-        }
-        .status-badge {
-            padding: 0.3rem 0.8rem;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
+        .admin-nav { background: white; padding: 1rem 5%; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); }
+        .orders-container { padding: 3rem 5%; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: var(--shadow); text-align: center; }
+        .stat-card h3 { margin: 0; color: #888; font-size: 0.9rem; }
+        .stat-card p { margin: 10px 0 0; font-size: 1.8rem; font-weight: bold; color: var(--primary); }
+        .order-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+        .order-table th { background: var(--primary); color: white; padding: 1.2rem; text-align: left; }
+        .order-table td { padding: 1.2rem; border-bottom: 1px solid #eee; }
+        .status-badge { padding: 0.3rem 0.8rem; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
         .status-pending { background: #ffeaa7; color: #d6a312; }
         .status-completed { background: #55efc4; color: #00b894; }
         .status-cancelled { background: #ff7675; color: #d63031; }
+        .payment-paid { background: #e3f9e5; color: #1f7a28; }
+        .payment-unpaid { background: #fff1f0; color: #cf1322; }
         .order-date { font-size: 0.8rem; color: #888; }
-        .payment-method-badge { font-size: 0.75rem; padding: 2px 6px; background: #eee; border-radius: 4px; color: #666; }
     </style>
 </head>
 <body>
     <nav class="admin-nav">
         <h2 style="color:var(--primary);">Admin Dashboard</h2>
         <div>
-            <a href="{{ url_for('index') }}">View Site</a> |
+            <a href="{{ url_for('admin_orders') }}">Orders</a> |
+            <a href="{{ url_for('admin_products') }}">Products</a> |
             {% if current_user.role == 'SuperAdmin' %}
-                <a href="{{ url_for('super_admin') }}">Super Admin</a> |
+                <a href="{{ url_for('super_admin') }}">System</a> |
             {% endif %}
             <a href="{{ url_for('logout') }}">Logout</a>
         </div>
     </nav>
 
     <main class="orders-container">
-        <h2>Order Management</h2>
+        <div class="stats-grid">
+            <div class="stat-card"><h3>Total Revenue</h3><p>KES {{ stats.total_revenue }}</p></div>
+            <div class="stat-card"><h3>Total Orders</h3><p>{{ stats.total_orders }}</p></div>
+            <div class="stat-card"><h3>Pending</h3><p>{{ stats.pending_orders }}</p></div>
+        </div>
 
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <div style="padding:1rem; background:#d4edda; color:#155724; border-radius:8px; margin-bottom:1rem;">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
+        <h2>Recent Orders</h2>
         <table class="order-table">
             <thead>
                 <tr>
@@ -79,6 +53,7 @@
                     <th>Customer</th>
                     <th>Items</th>
                     <th>Total</th>
+                    <th>Payment</th>
                     <th>Status</th>
                     <th>Action</th>
                 </tr>
@@ -90,32 +65,41 @@
                     <td>
                         <div class="order-date">{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                         <strong>{{ order.first_name }} {{ order.last_name }}</strong><br>
-                        <small>{{ order.phone }} | {{ order.city }}</small><br>
-                        <small style="color:blue;">Account: {{ order.customer.email }}</small>
+                        <small>{{ order.phone }}</small>
                     </td>
                     <td>
                         {% for item in order.items %}
-                            <div style="font-size: 0.9rem;">{{ item.quantity }}x {{ item.name }}</div>
+                            <div style="font-size: 0.85rem;">{{ item.quantity }}x {{ item.name }}</div>
                         {% endfor %}
-                        <div class="payment-method-badge">{{ order.payment_method }}</div>
                     </td>
                     <td>KES {{ order.total_amount }}</td>
+                    <td>
+                        <span class="status-badge payment-{{ order.payment_status|lower }}">
+                            {{ order.payment_status }}
+                        </span>
+                        <br><small>{{ order.payment_method }}</small>
+                    </td>
                     <td>
                         <span class="status-badge status-{{ order.status|lower }}">
                             {{ order.status }}
                         </span>
                     </td>
                     <td>
-                        <form action="{{ url_for('update_status', order_id=order.id) }}" method="POST" style="display:flex; gap:0.5rem;">
+                        <form action="{{ url_for('update_status', order_id=order.id) }}" method="POST">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <select name="status" style="padding:0.4rem; border-radius:4px; border:1px solid #ddd;">
+                            <select name="status" style="width:100%; margin-bottom:5px;">
                                 <option value="Pending" {% if order.status == 'Pending' %}selected{% endif %}>Pending</option>
                                 <option value="Preparing" {% if order.status == 'Preparing' %}selected{% endif %}>Preparing</option>
                                 <option value="Out for Delivery" {% if order.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
                                 <option value="Completed" {% if order.status == 'Completed' %}selected{% endif %}>Completed</option>
                                 <option value="Cancelled" {% if order.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
                             </select>
-                            <button type="submit" class="btn btn-primary" style="padding:0.4rem 0.8rem; font-size:0.8rem;">UPDATE</button>
+                            <select name="payment_status" style="width:100%; margin-bottom:5px;">
+                                <option value="Unpaid" {% if order.payment_status == 'Unpaid' %}selected{% endif %}>Unpaid</option>
+                                <option value="Paid" {% if order.payment_status == 'Paid' %}selected{% endif %}>Paid</option>
+                                <option value="Refunded" {% if order.payment_status == 'Refunded' %}selected{% endif %}>Refunded</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary" style="width:100%; padding:5px; font-size:0.8rem;">Update</button>
                         </form>
                     </td>
                 </tr>

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Products | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .admin-container { padding: 3rem 5%; }
+        .product-table { width: 100%; border-collapse: collapse; background: white; box-shadow: var(--shadow); border-radius: 12px; overflow: hidden; }
+        .product-table th, .product-table td { padding: 1rem; text-align: left; border-bottom: 1px solid #eee; }
+        .product-table th { background: var(--primary); color: white; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">Product Management</div>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('admin_orders') }}">Orders</a></li>
+            <li><a href="{{ url_for('admin_products') }}">Products</a></li>
+            <li><a href="{{ url_for('index') }}">View Site</a></li>
+        </ul>
+    </nav>
+
+    <div class="admin-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+            <h2>Menu Inventory</h2>
+            <a href="{{ url_for('add_product') }}" class="btn btn-primary">+ Add New Product</a>
+        </div>
+
+        <table class="product-table">
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr>
+                    <td><img src="{{ url_for('static', filename=product.image_url) }}" style="height:50px; border-radius:8px;"></td>
+                    <td>{{ product.name }}</td>
+                    <td>KES {{ product.price }}</td>
+                    <td>{{ product.category }}</td>
+                    <td>
+                        <span style="color: {{ 'green' if product.is_active else 'red' }}">
+                            {{ 'Active' if product.is_active else 'Inactive' }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('edit_product', product_id=product.id) }}" class="btn" style="background:#eee; padding:5px 10px;">Edit</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

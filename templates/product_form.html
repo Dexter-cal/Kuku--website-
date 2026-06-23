@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>{{ action }} Product | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .form-container { max-width: 600px; margin: 50px auto; background: white; padding: 2rem; border-radius: 12px; box-shadow: var(--shadow); }
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h2>{{ action }} Product</h2>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Product Name</label>
+                <input type="text" name="name" value="{{ product.name if product else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label>Price (KES)</label>
+                <input type="number" step="0.01" name="price" value="{{ product.price if product else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <input type="text" name="category" value="{{ product.category if product else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label>Image URL (static/filename)</label>
+                <input type="text" name="image_url" value="{{ product.image_url if product else '' }}">
+            </div>
+            <div class="form-group">
+                <label>Tags (comma separated)</label>
+                <input type="text" name="tags" value="{{ product.tags if product else '' }}">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="4">{{ product.description if product else '' }}</textarea>
+            </div>
+            {% if product %}
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="is_active" {{ 'checked' if product.is_active else '' }}>
+                    Product is Active
+                </label>
+            </div>
+            {% endif %}
+
+            <div style="display:flex; gap:10px;">
+                <button type="submit" class="btn btn-primary" style="flex:1;">Save Product</button>
+                <a href="{{ url_for('admin_products') }}" class="btn" style="flex:1; background:#eee; text-align:center;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
