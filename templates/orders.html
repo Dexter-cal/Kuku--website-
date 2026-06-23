@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        .admin-nav {
+            background: white;
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow);
+        }
+        .orders-container {
+            padding: 3rem 5%;
+        }
+        .order-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        .order-table th {
+            background: var(--primary);
+            color: white;
+            padding: 1.2rem;
+            text-align: left;
+        }
+        .order-table td {
+            padding: 1.2rem;
+            border-bottom: 1px solid #eee;
+        }
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .status-pending { background: #ffeaa7; color: #d6a312; }
+        .status-completed { background: #55efc4; color: #00b894; }
+        .status-cancelled { background: #ff7675; color: #d63031; }
+    </style>
+</head>
+<body>
+    <nav class="admin-nav">
+        <h2 style="color:var(--primary);">Admin Dashboard</h2>
+        <div>
+            <a href="{{ url_for('index') }}">View Site</a> |
+            <a href="{{ url_for('admin_logout') }}">Logout</a>
+        </div>
+    </nav>
+
+    <main class="orders-container">
+        <h2>Order Management</h2>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div style="padding:1rem; background:#d4edda; color:#155724; border-radius:8px; margin-bottom:1rem;">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <table class="order-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>
+                        <strong>{{ order.first_name }} {{ order.last_name }}</strong><br>
+                        <small>{{ order.phone }} | {{ order.city }}</small>
+                    </td>
+                    <td>
+                        {% for item in order.items %}
+                            {{ item.quantity }}x {{ item.name }}<br>
+                        {% endfor %}
+                    </td>
+                    <td>KES {{ order.total_amount }}</td>
+                    <td>
+                        <span class="status-badge status-{{ order.status|lower }}">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <form action="{{ url_for('update_status', order_id=order.id) }}" method="POST" style="display:flex; gap:0.5rem;">
+                            <select name="status" style="padding:0.4rem; border-radius:4px; border:1px solid #ddd;">
+                                <option value="Pending" {% if order.status == 'Pending' %}selected{% endif %}>Pending</option>
+                                <option value="Preparing" {% if order.status == 'Preparing' %}selected{% endif %}>Preparing</option>
+                                <option value="Out for Delivery" {% if order.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
+                                <option value="Completed" {% if order.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                <option value="Cancelled" {% if order.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary" style="padding:0.4rem 0.8rem; font-size:0.8rem;">UPDATE</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+</body>
+</html>
