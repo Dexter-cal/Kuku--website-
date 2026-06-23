@@ -30,6 +30,7 @@
         <h2 style="color:var(--primary);">Admin Dashboard</h2>
         <div>
             <a href="{{ url_for('admin_orders') }}">Orders</a> |
+            <a href="{{ url_for('admin_customers') }}">Customers</a> |
             <a href="{{ url_for('admin_products') }}">Products</a> |
             {% if current_user.role == 'SuperAdmin' %}
                 <a href="{{ url_for('super_admin') }}">System</a> |
@@ -40,9 +41,9 @@
 
     <main class="orders-container">
         <div class="stats-grid">
-            <div class="stat-card"><h3>Total Revenue</h3><p>KES {{ stats.total_revenue }}</p></div>
-            <div class="stat-card"><h3>Total Orders</h3><p>{{ stats.total_orders }}</p></div>
-            <div class="stat-card"><h3>Pending</h3><p>{{ stats.pending_orders }}</p></div>
+            <div class="stat-card"><h3>Total Revenue</h3><p>KES {{ stats.revenue }}</p></div>
+            <div class="stat-card"><h3>Total Profit</h3><p style="color:green;">KES {{ stats.profit }}</p></div>
+            <div class="stat-card"><h3>Pending</h3><p>{{ stats.pending }}</p></div>
         </div>
 
         <h2>Recent Orders</h2>
@@ -100,6 +101,39 @@
                                 <option value="Refunded" {% if order.payment_status == 'Refunded' %}selected{% endif %}>Refunded</option>
                             </select>
                             <button type="submit" class="btn btn-primary" style="width:100%; padding:5px; font-size:0.8rem;">Update</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2 style="margin-top:3rem;">Table Reservations</h2>
+        <table class="order-table">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Guests</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in reservations %}
+                <tr>
+                    <td>{{ res.customer.first_name }} {{ res.customer.last_name }}</td>
+                    <td>{{ res.guest_count }}</td>
+                    <td>{{ res.reservation_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ res.status }}</td>
+                    <td>
+                        <form action="{{ url_for('update_reservation_status', res_id=res.id) }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select name="status" onchange="this.form.submit()">
+                                <option value="Confirmed" {% if res.status == 'Confirmed' %}selected{% endif %}>Confirmed</option>
+                                <option value="Completed" {% if res.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                <option value="Cancelled" {% if res.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
                         </form>
                     </td>
                 </tr>

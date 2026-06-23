@@ -61,6 +61,7 @@
         <ul class="nav-links">
             <li><a href="{{ url_for('index') }}">Home</a></li>
             <li><a href="{{ url_for('menu') }}">Menu</a></li>
+            <li><a href="{{ url_for('book_table') }}">Book a Table</a></li>
             {% if current_user.is_authenticated %}
                 <li><a href="{{ url_for('user_dashboard') }}">My Dashboard</a></li>
                 <li><a href="{{ url_for('logout') }}">Logout</a></li>

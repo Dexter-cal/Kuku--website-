@@ -21,7 +21,19 @@
     </nav>
 
     <div class="dashboard-container">
-        <h2>Order History</h2>
+        <h2>Table Reservations</h2>
+        {% if not reservations %}
+            <p>No table bookings. <a href="{{ url_for('book_table') }}">Book now</a></p>
+        {% else %}
+            {% for res in reservations %}
+            <div class="order-card">
+                <strong>{{ res.reservation_time.strftime('%Y-%m-%d %H:%M') }}</strong> - {{ res.guest_count }} Guests
+                <span class="status-badge">{{ res.status }}</span>
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <h2 style="margin-top:2rem;">Order History</h2>
         {% if not orders %}
             <p>You haven't placed any orders yet. <a href="{{ url_for('menu') }}">Go to Menu</a></p>
         {% else %}

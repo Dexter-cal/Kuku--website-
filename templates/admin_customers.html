@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Customer Management | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .admin-container { padding: 3rem 5%; }
+        .customer-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+        .customer-table th, .customer-table td { padding: 1.2rem; text-align: left; border-bottom: 1px solid #eee; }
+        .customer-table th { background: var(--primary); color: white; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">Customer Directory</div>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('admin_orders') }}">Orders</a></li>
+            <li><a href="{{ url_for('admin_products') }}">Products</a></li>
+            <li><a href="{{ url_for('index') }}">View Site</a></li>
+        </ul>
+    </nav>
+
+    <div class="admin-container">
+        <h2>Our Customers</h2>
+        <table class="customer-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Joined</th>
+                    <th>Orders</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for customer in customers %}
+                <tr>
+                    <td>{{ customer.first_name }} {{ customer.last_name }}</td>
+                    <td>{{ customer.email }}</td>
+                    <td>{{ customer.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>{{ customer.orders|length }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
