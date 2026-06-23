@@ -36,6 +36,7 @@
                     <th>Name</th>
                     <th>Price</th>
                     <th>Category</th>
+                    <th>Stock</th>
                     <th>Status</th>
                     <th>Action</th>
                 </tr>
@@ -47,6 +48,11 @@
                     <td>{{ product.name }}</td>
                     <td>KES {{ product.price }}</td>
                     <td>{{ product.category }}</td>
+                    <td>
+                        <span style="color: {{ 'red' if product.stock_level < 10 else 'black' }}">
+                            {{ product.stock_level }}
+                        </span>
+                    </td>
                     <td>
                         <span style="color: {{ 'green' if product.is_active else 'red' }}">
                             {{ 'Active' if product.is_active else 'Inactive' }}

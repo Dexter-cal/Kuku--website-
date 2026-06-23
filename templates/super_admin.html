@@ -26,6 +26,43 @@
     </nav>
 
     <div class="admin-grid">
+        <!-- Feedback Moderation -->
+        <div class="card" style="grid-column: span 2;">
+            <h3>User Feedback & Ratings</h3>
+            <table>
+                <thead><tr><th>Customer</th><th>Product/Order</th><th>Rating</th><th>Comment</th></tr></thead>
+                <tbody>
+                    {% for fb in feedbacks %}
+                    <tr>
+                        <td>{{ fb.customer.email }}</td>
+                        <td>{{ fb.product.name if fb.product else 'Order #' ~ fb.order_id }}</td>
+                        <td>{{ fb.rating }}/5</td>
+                        <td>{{ fb.comment }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Issue Reports -->
+        <div class="card" style="grid-column: span 2;">
+            <h3>System Reports & Complaints</h3>
+            <table>
+                <thead><tr><th>Reported By</th><th>Type</th><th>ID</th><th>Reason</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.user_id }}</td>
+                        <td>{{ report.item_type }}</td>
+                        <td>{{ report.item_id }}</td>
+                        <td>{{ report.reason }}</td>
+                        <td>{{ report.status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <!-- User Management -->
         <div class="card">
             <h3>User Management</h3>

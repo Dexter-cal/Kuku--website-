@@ -13,7 +13,10 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="logo">My Orders</div>
+        <div class="logo">
+            Customer Portal <br>
+            <small style="color:var(--primary);">Loyalty Points: {{ current_user.loyalty_points }}</small>
+        </div>
         <ul class="nav-links">
             <li><a href="{{ url_for('index') }}">Home</a></li>
             <li><a href="{{ url_for('logout') }}">Logout</a></li>
@@ -45,11 +48,58 @@
                         <p>{{ order.items|length }} items | Total: KES {{ order.total_amount }}</p>
                     </div>
                     <div>
-                        <span class="status-badge">{{ order.status }}</span>
+                        <span class="status-badge status-{{ order.status|lower }}">{{ order.status }}</span>
+
+                        <!-- Visual Progress Bar -->
+                        <div style="margin-top:10px; width:200px; height:8px; background:#eee; border-radius:4px; overflow:hidden;">
+                            <div style="height:100%; background:var(--primary); transition:0.5s; width:
+                                {% if order.status == 'Pending' %}20%
+                                {% elif order.status == 'Preparing' %}50%
+                                {% elif order.status == 'Out for Delivery' %}80%
+                                {% elif order.status == 'Completed' %}100%
+                                {% else %}0%{% endif %};">
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                {% if order.status == 'Completed' %}
+                <div style="margin-top:1rem; padding-top:1rem; border-top:1px dashed #eee;">
+                    <h4>Leave a Review</h4>
+                    <form action="{{ url_for('leave_feedback') }}" method="POST" style="display:flex; gap:10px; align-items:center;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="order_id" value="{{ order.id }}">
+                        <select name="rating" style="width:auto;">
+                            <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
+                            <option value="4">⭐⭐⭐⭐ (Good)</option>
+                            <option value="3">⭐⭐⭐ (Average)</option>
+                            <option value="2">⭐⭐ (Poor)</option>
+                            <option value="1">⭐ (Terrible)</option>
+                        </select>
+                        <input type="text" name="comment" placeholder="Your thoughts..." style="flex:1;">
+                        <button type="submit" class="btn btn-primary">Post</button>
+                    </form>
+                </div>
+                {% endif %}
+
+                <div style="margin-top:0.5rem; text-align:right;">
+                    <button onclick="toggleReport({{ order.id }})" style="background:none; border:none; color:red; cursor:pointer; font-size:0.8rem;">Report an Issue</button>
+                    <form id="report-{{ order.id }}" action="{{ url_for('report_item') }}" method="POST" style="display:none; margin-top:10px;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="item_type" value="Order">
+                        <input type="hidden" name="item_id" value="{{ order.id }}">
+                        <textarea name="reason" placeholder="What's wrong? (Missing items, cold food, etc.)" required style="width:100%;"></textarea>
+                        <button type="submit" class="btn" style="background:red; color:white; margin-top:5px;">Submit Report</button>
+                    </form>
                 </div>
             </div>
             {% endfor %}
+            <script>
+                function toggleReport(id) {
+                    const f = document.getElementById('report-' + id);
+                    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+                }
+            </script>
         {% endif %}
     </div>
 </body>

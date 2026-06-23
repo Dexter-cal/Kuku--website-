@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Order, OrderItem, Product, Setting, Reservation
+from flask_mail import Mail, Message
+from models import db, User, Order, OrderItem, Product, Setting, Reservation, Feedback, Report
 from functools import wraps
 from dotenv import load_dotenv
 from sqlalchemy import or_, func
@@ -17,9 +19,20 @@ app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///kuku_shop.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_change_me')
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB limit
+
+# Mail Configuration
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 
 csrf = CSRFProtect(app)
 db.init_app(app)
+mail = Mail(app)
 
 login_manager = LoginManager()
 login_manager.login_view = 'login'
@@ -60,6 +73,9 @@ def role_required(roles):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 def seed_data():
     if Product.query.first() is None:
@@ -165,9 +181,18 @@ def forgot_password():
             token = secrets.token_urlsafe(32)
             user.reset_token = token
             db.session.commit()
-            # Simulated Email
-            app.logger.info(f"Reset Link: {url_for('reset_password', token=token, _external=True)}")
-            flash('If the email exists, a reset link has been logged to the server console.')
+
+            reset_url = url_for('reset_password', token=token, _external=True)
+
+            # Send Email
+            msg = Message("Hope Kuku Shop - Password Reset", recipients=[user.email])
+            msg.body = f"Hello {user.first_name},\n\nYou requested a password reset. Click the link below to continue:\n\n{reset_url}\n\nIf you did not request this, please ignore this email."
+            try:
+                mail.send(msg)
+                flash('Password reset link sent to your email.')
+            except Exception as e:
+                app.logger.error(f"Mail error: {e}")
+                flash(f'Error sending email. Development Reset Link: {reset_url}')
         else:
             flash('Email not found.')
     return render_template('forgot_password.html')
@@ -230,6 +255,10 @@ def checkout():
                 scheduled_delivery_time=datetime.fromisoformat(scheduled_time_raw) if scheduled_time_raw else None
             )
             db.session.add(new_order)
+
+            # Loyalty Points: 1 point for every 100 KES spent
+            current_user.loyalty_points += int(total_amount / 100)
+
             db.session.flush()
             for item in verified_items:
                 db.session.add(OrderItem(order_id=new_order.id, product_id=item['id'], name=item['name'], price=item['price'], cost_at_time=item['cost'], quantity=item['qty']))
@@ -257,6 +286,33 @@ def user_dashboard():
     orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
     reservations = Reservation.query.filter_by(user_id=current_user.id).order_by(Reservation.reservation_time.desc()).all()
     return render_template('user_dashboard.html', orders=orders, reservations=reservations)
+
+@app.route('/feedback', methods=['POST'])
+@login_required
+def leave_feedback():
+    product_id = request.form.get('product_id')
+    order_id = request.form.get('order_id')
+    rating = int(request.form.get('rating', 5))
+    comment = request.form.get('comment')
+
+    new_fb = Feedback(user_id=current_user.id, product_id=product_id, order_id=order_id, rating=rating, comment=comment)
+    db.session.add(new_fb)
+    db.session.commit()
+    flash('Thank you for your feedback!')
+    return redirect(url_for('user_dashboard'))
+
+@app.route('/report', methods=['POST'])
+@login_required
+def report_item():
+    item_type = request.form.get('item_type')
+    item_id = request.form.get('item_id')
+    reason = request.form.get('reason')
+
+    new_report = Report(user_id=current_user.id, item_type=item_type, item_id=item_id, reason=reason)
+    db.session.add(new_report)
+    db.session.commit()
+    flash('Report submitted. We will investigate.')
+    return redirect(url_for('user_dashboard'))
 
 # --- ADMIN ROUTES ---
 
@@ -297,7 +353,25 @@ def admin_products():
 @role_required(['Admin', 'SuperAdmin'])
 def add_product():
     if request.method == 'POST':
-        db.session.add(Product(name=request.form.get('name'), price=float(request.form.get('price')), cost_price=float(request.form.get('cost_price')), category=request.form.get('category'), image_url=request.form.get('image_url'), tags=request.form.get('tags'), description=request.form.get('description')))
+        image_url = request.form.get('image_url') # Default
+
+        if 'image_file' in request.files:
+            file = request.files['image_file']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                image_url = f'uploads/{filename}'
+
+        db.session.add(Product(
+            name=request.form.get('name'),
+            price=float(request.form.get('price')),
+            cost_price=float(request.form.get('cost_price')),
+            category=request.form.get('category'),
+            image_url=image_url,
+            tags=request.form.get('tags'),
+            description=request.form.get('description'),
+            stock_level=int(request.form.get('stock_level', 100))
+        ))
         db.session.commit()
         flash('Product added!')
         return redirect(url_for('admin_products'))
@@ -308,7 +382,17 @@ def add_product():
 def edit_product(product_id):
     product = Product.query.get_or_404(product_id)
     if request.method == 'POST':
-        product.name, product.price, product.cost_price, product.category, product.image_url, product.tags, product.description, product.is_active = request.form.get('name'), float(request.form.get('price')), float(request.form.get('cost_price')), request.form.get('category'), request.form.get('image_url'), request.form.get('tags'), request.form.get('description'), 'is_active' in request.form
+        if 'image_file' in request.files:
+            file = request.files['image_file']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                product.image_url = f'uploads/{filename}'
+        elif request.form.get('image_url'):
+             product.image_url = request.form.get('image_url')
+
+        product.name, product.price, product.cost_price, product.category, product.tags, product.description, product.is_active = request.form.get('name'), float(request.form.get('price')), float(request.form.get('cost_price')), request.form.get('category'), request.form.get('tags'), request.form.get('description'), 'is_active' in request.form
+        product.stock_level = int(request.form.get('stock_level', 100))
         db.session.commit()
         return redirect(url_for('admin_products'))
     return render_template('product_form.html', product=product, action="Edit")
@@ -318,7 +402,11 @@ def edit_product(product_id):
 @app.route('/super-admin')
 @role_required('SuperAdmin')
 def super_admin():
-    return render_template('super_admin.html', settings=Setting.query.all(), users=User.query.all())
+    return render_template('super_admin.html',
+                           settings=Setting.query.all(),
+                           users=User.query.all(),
+                           feedbacks=Feedback.query.order_by(Feedback.created_at.desc()).all(),
+                           reports=Report.query.order_by(Report.created_at.desc()).all())
 
 @app.route('/super-admin/user/<int:user_id>/role', methods=['POST'])
 @role_required('SuperAdmin')
