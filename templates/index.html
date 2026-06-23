@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hope Kuku Shop | Premium Roasted Chicken</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-drumstick-bite"></i> Hope Kuku Shop
+        </div>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('menu') }}">Menu</a></li>
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('user_dashboard') }}">My Dashboard</a></li>
+                {% if current_user.role in ['Admin', 'SuperAdmin'] %}
+                    <li><a href="{{ url_for('admin_orders') }}">Admin</a></li>
+                {% endif %}
+                {% if current_user.role == 'SuperAdmin' %}
+                    <li><a href="{{ url_for('super_admin') }}">Super Admin</a></li>
+                {% endif %}
+                <li><a href="{{ url_for('logout') }}">Logout</a></li>
+            {% else %}
+                <li><a href="{{ url_for('login') }}">Login</a></li>
+            {% endif %}
+            <li><a href="{{ url_for('checkout') }}" class="cart-btn">
+                <i class="fas fa-shopping-cart"></i> Cart (<span id="cartCount">0</span>)
+            </a></li>
+        </ul>
+    </nav>
+
+    <header class="hero">
+        <h1>Savor the Crunch</h1>
+        <p>Premium, freshly roasted chicken delivered from our kitchen to your doorstep. Experience the best flavors in Kariobangi South.</p>
+        <div class="hero-btns">
+            <a href="{{ url_for('menu') }}" class="btn btn-primary">Order Now</a>
+        </div>
+    </header>
+
+    <section class="features">
+        <div class="feature-card">
+            <i class="fas fa-shipping-fast"></i>
+            <h3>Fast Delivery</h3>
+            <p>Hot and fresh chicken delivered to your location in record time.</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-utensils"></i>
+            <h3>Quality Ingredients</h3>
+            <p>We use only the finest, locally sourced poultry and spices.</p>
+        </div>
+        <div class="feature-card">
+            <i class="fas fa-shield-alt"></i>
+            <h3>Secure Payments</h3>
+            <p>Pay easily via M-Pesa or Bitcoin with full encryption.</p>
+        </div>
+    </section>
+
+    <section class="menu-section" id="featured">
+        <div class="section-header">
+            <h2>Our Favorites</h2>
+            <p>Customer favorites that keep them coming back for more.</p>
+        </div>
+        <div class="menu-grid">
+            {% for product in featured_products %}
+            <div class="product-card">
+                <img src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}" class="product-img">
+                <div class="product-info">
+                    <h3>{{ product.name }}</h3>
+                    <span class="product-price">KES {{ product.price }}</span>
+                    <button class="add-to-cart" onclick="addToCart('{{ product.name }}', {{ product.price }}, 1, {{ product.id }})">Add to Cart</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>Hope Kuku Shop</h3>
+                <p>Nairobi's favorite spot for authentic roasted chicken. Quality you can taste.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="{{ url_for('menu') }}">Menu</a></li>
+                    <li><a href="{{ url_for('checkout') }}">Checkout</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Contact</h3>
+                <p>Mutarakwa Road, Kariobangi South</p>
+                <p>Phone: +254 712 345 678</p>
+                <p>Email: hello@hopekuku.com</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            &copy; 2024 Hope Kuku Shop. All rights reserved.
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/cart.js') }}"></script>
+</body>
+</html>

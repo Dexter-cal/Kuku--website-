@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Success | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f5ef;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .success-card {
+            background: white;
+            padding: 40px;
+            border-radius: 28px;
+            box-shadow: 0 18px 40px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 60px;
+            color: #4caf50;
+            margin-bottom: 20px;
+        }
+        h1 { color: #111; }
+        p { color: #555; line-height: 1.6; }
+        .order-id {
+            font-weight: bold;
+            color: #ff6b00;
+        }
+        .btn-home {
+            display: inline-block;
+            margin-top: 30px;
+            background: #ff6b00;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  </head>
+  <body>
+    <div class="success-card">
+      <div class="success-icon"><i class="fas fa-check-circle"></i></div>
+      <h1>Order Placed Successfully!</h1>
+      <p>Thank you, {{ order.first_name }}! Your order <span class="order-id">#{{ order.id }}</span> has been received.</p>
+      <p>Payment Method: {{ order.payment_method }}</p>
+      <p>Total: KES {{ order.total_amount }}</p>
+      <p>We are processing your order and will contact you soon.</p>
+      <a href="{{ url_for('index') }}" class="btn-home">Back to Home</a>
+    </div>
+    <script>
+        // Clear cart after successful order
+        localStorage.removeItem("richChickenCart");
+    </script>
+  </body>
+</html>

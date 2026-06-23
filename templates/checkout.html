@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Checkout | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        .checkout-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 2rem;
+            padding: 3rem 5%;
+        }
+        .checkout-form-container, .order-summary {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+        .payment-methods {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .payment-method {
+            border: 1px solid #ddd;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .payment-method img {
+            height: 40px;
+            margin-bottom: 10px;
+        }
+        .form-group { margin-bottom: 1.2rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        .form-group input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        @media (max-width: 900px) {
+            .checkout-grid { grid-template-columns: 1fr; }
+        }
+        .flash-messages {
+            max-width: 800px;
+            margin: 1rem auto;
+            padding: 0 1rem;
+        }
+        .flash {
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <i class="fas fa-drumstick-bite"></i> Hope Kuku Shop
+        </div>
+        <a href="{{ url_for('menu') }}">Back to Menu</a>
+    </nav>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for message in messages %}
+            <div class="flash">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <main class="checkout-grid">
+        <div class="checkout-form-container">
+            <h2>Delivery Details</h2>
+            <form class="checkout-form" action="{{ url_for('checkout') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" name="last_name" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone (M-Pesa Number)</label>
+                    <input type="tel" id="phone" name="phone" placeholder="07XXXXXXXX" required>
+                </div>
+                <div class="form-group">
+                    <label>Street Address</label>
+                    <input type="text" name="address" required>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text" name="city" value="Nairobi" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Country</label>
+                        <input type="text" name="country" value="Kenya" required>
+                    </div>
+                </div>
+
+                <h2 style="margin-top:2rem;">Payment Method</h2>
+                <div class="payment-methods">
+                    <div class="payment-method" id="m-pesa-card" onclick="selectPaymentMethod('M-PESA')">
+                        <img src="{{ url_for('static', filename='images/pochi.png') }}" alt="M-Pesa">
+                        <h3>M-Pesa</h3>
+                    </div>
+                    <div class="payment-method" id="bitcoin-card" onclick="selectPaymentMethod('Bitcoin')">
+                        <img src="{{ url_for('static', filename='images/bitcoin.png') }}" alt="Bitcoin">
+                        <h3>Bitcoin</h3>
+                    </div>
+                </div>
+
+                <input type="hidden" name="payment_method" id="payment_method" required>
+                <input type="hidden" name="cart_data" id="cart_data">
+
+                <button type="submit" id="checkoutSubmit" class="btn btn-primary" style="width:100%; margin-top:2rem;" disabled>
+                    Place Order
+                </button>
+            </form>
+        </div>
+
+        <div class="order-summary">
+            <h2>Order Summary</h2>
+            <div id="cartContainer" style="margin:1.5rem 0;">
+                <!-- Filled by JS -->
+            </div>
+            <div style="border-top:2px solid #eee; padding-top:1rem; display:flex; justify-content:space-between; font-weight:800; font-size:1.2rem;">
+                <span>Total</span>
+                <span id="checkoutTotal">KES 0</span>
+            </div>
+            <div style="margin-top: 1rem;">
+                <small>Payment Method: <span id="selectedMethodLabel">None selected</span></small>
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/cart.js') }}"></script>
+</body>
+</html>
