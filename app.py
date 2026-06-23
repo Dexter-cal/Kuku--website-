@@ -2,18 +2,27 @@ import json
 import os
 from datetime import datetime, timezone
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask_wtf.csrf import CSRFProtect
+from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, Order, OrderItem, Product
 from functools import wraps
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///kuku_shop.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///kuku_shop.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_change_me')
 
+# Enable CSRF Protection
+csrf = CSRFProtect(app)
+
 db.init_app(app)
 
-# Simple Admin Protection
-ADMIN_PASSWORD = "kuku_admin_2024"
+# Hashed Admin Password (Default: kuku_admin_2024)
+DEFAULT_HASH = generate_password_hash("kuku_admin_2024")
+ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH', DEFAULT_HASH)
 
 def login_required(f):
     @wraps(f)
@@ -130,7 +139,8 @@ def checkout():
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
-        if request.form.get('password') == ADMIN_PASSWORD:
+        password = request.form.get('password')
+        if check_password_hash(ADMIN_PASSWORD_HASH, password):
             session['admin_logged_in'] = True
             return redirect(url_for('admin_orders'))
         else:
@@ -164,4 +174,5 @@ def about():
     return "About Us page coming soon!"
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true', port=port)
