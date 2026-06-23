@@ -54,7 +54,10 @@
         <h2 style="color:var(--primary);">Admin Dashboard</h2>
         <div>
             <a href="{{ url_for('index') }}">View Site</a> |
-            <a href="{{ url_for('admin_logout') }}">Logout</a>
+            {% if current_user.role == 'SuperAdmin' %}
+                <a href="{{ url_for('super_admin') }}">Super Admin</a> |
+            {% endif %}
+            <a href="{{ url_for('logout') }}">Logout</a>
         </div>
     </nav>
 
@@ -87,7 +90,8 @@
                     <td>
                         <div class="order-date">{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                         <strong>{{ order.first_name }} {{ order.last_name }}</strong><br>
-                        <small>{{ order.phone }} | {{ order.city }}</small>
+                        <small>{{ order.phone }} | {{ order.city }}</small><br>
+                        <small style="color:blue;">Account: {{ order.customer.email }}</small>
                     </td>
                     <td>
                         {% for item in order.items %}

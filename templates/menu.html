@@ -49,6 +49,12 @@
         <ul class="nav-links">
             <li><a href="{{ url_for('index') }}">Home</a></li>
             <li><a href="{{ url_for('menu') }}">Menu</a></li>
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('user_dashboard') }}">My Dashboard</a></li>
+                <li><a href="{{ url_for('logout') }}">Logout</a></li>
+            {% else %}
+                <li><a href="{{ url_for('login') }}">Login</a></li>
+            {% endif %}
             <li><a href="{{ url_for('checkout') }}" class="cart-btn">
                 <i class="fas fa-shopping-cart"></i> Cart (<span id="cartCount">0</span>)
             </a></li>

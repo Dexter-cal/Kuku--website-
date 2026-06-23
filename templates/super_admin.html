@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Super Admin | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; padding: 2rem 5%; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: var(--shadow); }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-weight: bold; }
+        .form-group input, .form-group textarea { width: 100%; padding: 0.5rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { border-bottom: 1px solid #eee; padding: 0.8rem; text-align: left; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">Super Admin Panel</div>
+        <a href="{{ url_for('index') }}">View Site</a>
+    </nav>
+
+    <div class="admin-grid">
+        <!-- Product Management -->
+        <div class="card">
+            <h3>Manage Products</h3>
+            <form action="{{ url_for('add_product') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group"><label>Name</label><input type="text" name="name" required></div>
+                <div class="form-group"><label>Price</label><input type="number" name="price" required></div>
+                <div class="form-group"><label>Category</label><input type="text" name="category" required></div>
+                <div class="form-group"><label>Image URL</label><input type="text" name="image_url"></div>
+                <div class="form-group"><label>Description</label><textarea name="description"></textarea></div>
+                <button type="submit" class="btn btn-primary">Add Product</button>
+            </form>
+
+            <table>
+                <thead><tr><th>Name</th><th>Price</th><th>Active</th></tr></thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td>{{ product.name }}</td>
+                        <td>{{ product.price }}</td>
+                        <td>{{ product.is_active }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Settings Management -->
+        <div class="card">
+            <h3>API Keys & Settings</h3>
+            <form action="{{ url_for('update_setting') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group"><label>Key Name (e.g. MPESA_API_KEY)</label><input type="text" name="key" required></div>
+                <div class="form-group"><label>Value</label><input type="text" name="value" required></div>
+                <button type="submit" class="btn btn-primary">Save Setting</button>
+            </form>
+
+            <table>
+                <thead><tr><th>Key</th><th>Value</th></tr></thead>
+                <tbody>
+                    {% for setting in settings %}
+                    <tr>
+                        <td>{{ setting.key }}</td>
+                        <td><code>{{ setting.value[:20] }}...</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

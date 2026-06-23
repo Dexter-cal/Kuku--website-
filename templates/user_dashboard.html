@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Dashboard | Hope Kuku Shop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        .dashboard-container { padding: 3rem 5%; }
+        .order-card { background: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 1rem; box-shadow: var(--shadow); }
+        .status-badge { padding: 0.3rem 0.8rem; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">My Orders</div>
+        <ul class="nav-links">
+            <li><a href="{{ url_for('index') }}">Home</a></li>
+            <li><a href="{{ url_for('logout') }}">Logout</a></li>
+        </ul>
+    </nav>
+
+    <div class="dashboard-container">
+        <h2>Order History</h2>
+        {% if not orders %}
+            <p>You haven't placed any orders yet. <a href="{{ url_for('menu') }}">Go to Menu</a></p>
+        {% else %}
+            {% for order in orders %}
+            <div class="order-card">
+                <div style="display:flex; justify-content:space-between;">
+                    <div>
+                        <strong>Order #{{ order.id }}</strong> - {{ order.created_at.strftime('%Y-%m-%d') }}
+                        <p>{{ order.items|length }} items | Total: KES {{ order.total_amount }}</p>
+                    </div>
+                    <div>
+                        <span class="status-badge">{{ order.status }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</body>
+</html>

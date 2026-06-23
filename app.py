@@ -1,10 +1,11 @@
 import json
 import os
 from datetime import datetime, timezone
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, Order, OrderItem, Product
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from models import db, User, Order, OrderItem, Product, Setting
 from functools import wraps
 from dotenv import load_dotenv
 
@@ -18,21 +19,33 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_change_m
 # Enable CSRF Protection
 csrf = CSRFProtect(app)
 
+# Database Initialization
 db.init_app(app)
 
-# Hashed Admin Password (Default: kuku_admin_2024)
-DEFAULT_HASH = generate_password_hash("kuku_admin_2024")
-ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH', DEFAULT_HASH)
+# Login Management
+login_manager = LoginManager()
+login_manager.login_view = 'login'
+login_manager.init_app(app)
 
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('admin_logged_in'):
-            return redirect(url_for('admin_login'))
-        return f(*args, **kwargs)
-    return decorated_function
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
-def seed_products():
+# Role-based Access Control
+def role_required(roles):
+    if isinstance(roles, str):
+        roles = [roles]
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role not in roles:
+                abort(403)
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# Seeding Data
+def seed_data():
     if Product.query.first() is None:
         products = [
             Product(name='Full Roast Chicken', price=800, category='chicken', image_url='images/kuku full.jpg'),
@@ -45,33 +58,92 @@ def seed_products():
             Product(name='Smokes', price=50, category='sides', image_url='images/smokes.jpg'),
         ]
         db.session.bulk_save_objects(products)
-        db.session.commit()
+
+    if User.query.filter_by(role='SuperAdmin').first() is None:
+        super_admin = User(
+            first_name="Super",
+            last_name="Admin",
+            email="superadmin@hopekuku.com",
+            password_hash=generate_password_hash("super_admin_2024"),
+            role="SuperAdmin"
+        )
+        db.session.add(super_admin)
+
+        # Add a normal Admin
+        admin = User(
+            first_name="Store",
+            last_name="Manager",
+            email="admin@hopekuku.com",
+            password_hash=generate_password_hash("admin_2024"),
+            role="Admin"
+        )
+        db.session.add(admin)
+
+    db.session.commit()
 
 with app.app_context():
     db.create_all()
-    seed_products()
+    seed_data()
+
+# --- ROUTES ---
 
 @app.route('/')
 def index():
-    featured_products = Product.query.limit(3).all()
+    featured_products = Product.query.filter_by(is_active=True).limit(3).all()
     return render_template('index.html', featured_products=featured_products)
 
 @app.route('/menu')
 def menu():
-    products = Product.query.all()
+    products = Product.query.filter_by(is_active=True).all()
     return render_template('menu.html', products=products)
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first()
+
+        if user and check_password_hash(user.password_hash, password):
+            login_user(user)
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('index'))
+        else:
+            flash('Invalid email or password')
+    return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        if User.query.filter_by(email=email).first():
+            flash('Email already exists')
+            return redirect(url_for('signup'))
+
+        new_user = User(
+            first_name=request.form.get('first_name'),
+            last_name=request.form.get('last_name'),
+            email=email,
+            password_hash=generate_password_hash(request.form.get('password')),
+            role='Customer'
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Account created! Please login.')
+        return redirect(url_for('login'))
+    return render_template('signup.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
 @app.route('/checkout', methods=['GET', 'POST'])
+@login_required
 def checkout():
     if request.method == 'POST':
         try:
-            first_name = request.form.get('first_name')
-            last_name = request.form.get('last_name')
-            email = request.form.get('email')
-            phone = request.form.get('phone')
-            address = request.form.get('address')
-            city = request.form.get('city')
-            country = request.form.get('country')
             payment_method = request.form.get('payment_method')
             cart_data_raw = request.form.get('cart_data')
 
@@ -80,19 +152,16 @@ def checkout():
                 return redirect(url_for('menu'))
 
             cart_items = json.loads(cart_data_raw)
-
             total_amount = 0
             verified_items = []
 
             for item in cart_items:
                 product = Product.query.get(item['id'])
-                if not product:
-                    flash(f"Product {item['name']} not found.")
+                if not product or not product.is_active:
+                    flash(f"Product {item['name']} not available.")
                     return redirect(url_for('menu'))
 
-                # Server-side price calculation
-                item_total = product.price * item['quantity']
-                total_amount += item_total
+                total_amount += product.price * item['quantity']
                 verified_items.append({
                     'product_id': product.id,
                     'name': product.name,
@@ -101,13 +170,14 @@ def checkout():
                 })
 
             new_order = Order(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                phone=phone,
-                address=address,
-                city=city,
-                country=country,
+                user_id=current_user.id,
+                first_name=request.form.get('first_name'),
+                last_name=request.form.get('last_name'),
+                email=request.form.get('email'),
+                phone=request.form.get('phone'),
+                address=request.form.get('address'),
+                city=request.form.get('city'),
+                country=request.form.get('country'),
                 payment_method=payment_method,
                 total_amount=total_amount,
                 status='Pending'
@@ -130,48 +200,75 @@ def checkout():
 
         except Exception as e:
             db.session.rollback()
-            app.logger.error(f"Error processing order: {e}")
-            flash('There was an error processing your order.')
+            app.logger.error(f"Error: {e}")
+            flash('Error processing your order.')
             return redirect(url_for('checkout'))
 
     return render_template('checkout.html')
 
-@app.route('/admin/login', methods=['GET', 'POST'])
-def admin_login():
-    if request.method == 'POST':
-        password = request.form.get('password')
-        if check_password_hash(ADMIN_PASSWORD_HASH, password):
-            session['admin_logged_in'] = True
-            return redirect(url_for('admin_orders'))
-        else:
-            flash('Invalid password')
-    return render_template('admin_login.html')
+# --- DASHBOARDS ---
 
-@app.route('/admin/logout')
-def admin_logout():
-    session.pop('admin_logged_in', None)
-    return redirect(url_for('index'))
+@app.route('/dashboard')
+@login_required
+def user_dashboard():
+    orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    return render_template('user_dashboard.html', orders=orders)
 
 @app.route('/admin/orders')
-@login_required
+@role_required(['Admin', 'SuperAdmin'])
 def admin_orders():
     orders = Order.query.order_by(Order.created_at.desc()).all()
     return render_template('orders.html', orders=orders)
 
 @app.route('/admin/order/<int:order_id>/status', methods=['POST'])
-@login_required
+@role_required(['Admin', 'SuperAdmin'])
 def update_status(order_id):
     order = Order.query.get_or_404(order_id)
     new_status = request.form.get('status')
     if new_status:
         order.status = new_status
         db.session.commit()
-        flash(f'Order #{order_id} status updated to {new_status}')
+        flash(f'Order #{order_id} updated.')
     return redirect(url_for('admin_orders'))
 
-@app.route('/about')
-def about():
-    return "About Us page coming soon!"
+# --- SUPER ADMIN ---
+
+@app.route('/super-admin')
+@role_required('SuperAdmin')
+def super_admin():
+    products = Product.query.all()
+    settings = Setting.query.all()
+    return render_template('super_admin.html', products=products, settings=settings)
+
+@app.route('/super-admin/product/add', methods=['POST'])
+@role_required('SuperAdmin')
+def add_product():
+    new_product = Product(
+        name=request.form.get('name'),
+        price=float(request.form.get('price')),
+        category=request.form.get('category'),
+        image_url=request.form.get('image_url'),
+        description=request.form.get('description')
+    )
+    db.session.add(new_product)
+    db.session.commit()
+    flash('Product added!')
+    return redirect(url_for('super_admin'))
+
+@app.route('/super-admin/setting/update', methods=['POST'])
+@role_required('SuperAdmin')
+def update_setting():
+    key = request.form.get('key')
+    value = request.form.get('value')
+    setting = Setting.query.filter_by(key=key).first()
+    if setting:
+        setting.value = value
+    else:
+        setting = Setting(key=key, value=value)
+        db.session.add(setting)
+    db.session.commit()
+    flash('Setting updated!')
+    return redirect(url_for('super_admin'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

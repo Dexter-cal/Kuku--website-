@@ -15,7 +15,18 @@
         <ul class="nav-links">
             <li><a href="{{ url_for('index') }}">Home</a></li>
             <li><a href="{{ url_for('menu') }}">Menu</a></li>
-            <li><a href="#about">About</a></li>
+            {% if current_user.is_authenticated %}
+                <li><a href="{{ url_for('user_dashboard') }}">My Dashboard</a></li>
+                {% if current_user.role in ['Admin', 'SuperAdmin'] %}
+                    <li><a href="{{ url_for('admin_orders') }}">Admin</a></li>
+                {% endif %}
+                {% if current_user.role == 'SuperAdmin' %}
+                    <li><a href="{{ url_for('super_admin') }}">Super Admin</a></li>
+                {% endif %}
+                <li><a href="{{ url_for('logout') }}">Logout</a></li>
+            {% else %}
+                <li><a href="{{ url_for('login') }}">Login</a></li>
+            {% endif %}
             <li><a href="{{ url_for('checkout') }}" class="cart-btn">
                 <i class="fas fa-shopping-cart"></i> Cart (<span id="cartCount">0</span>)
             </a></li>
@@ -78,7 +89,6 @@
                 <ul>
                     <li><a href="{{ url_for('menu') }}">Menu</a></li>
                     <li><a href="{{ url_for('checkout') }}">Checkout</a></li>
-                    <li><a href="{{ url_for('admin_orders') }}">Admin</a></li>
                 </ul>
             </div>
             <div class="footer-section">
