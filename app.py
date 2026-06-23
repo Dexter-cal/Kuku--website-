@@ -29,6 +29,9 @@ def seed_products():
             Product(name='Full Roast Chicken', price=800, category='chicken', image_url='images/kuku full.jpg'),
             Product(name='Drumstick (1kg)', price=550, category='chicken', image_url='images/drumstick.jpg'),
             Product(name='Chicken Wings (1kg)', price=600, category='chicken', image_url='images/chicken wings.jpg'),
+            Product(name='Gizzards (Portion)', price=250, category='chicken', image_url='images/gizzards.png'),
+            Product(name='Chicken Liver', price=200, category='chicken', image_url='images/liver.png'),
+            Product(name='Chicken Neck', price=150, category='chicken', image_url='images/neck.png'),
             Product(name='Golden Chips (Large)', price=150, category='sides', image_url='images/chips.jpg'),
             Product(name='Smokes', price=50, category='sides', image_url='images/smokes.jpg'),
         ]
