@@ -28,11 +28,25 @@
             {% else %}
                 <li><a href="{{ url_for('login') }}">Login</a></li>
             {% endif %}
+            <li><button class="theme-toggle" onclick="toggleTheme()">🌓</button></li>
             <li><a href="{{ url_for('checkout') }}" class="cart-btn">
                 <i class="fas fa-shopping-cart"></i> Cart (<span id="cartCount">0</span>)
             </a></li>
         </ul>
     </nav>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const target = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', target);
+            localStorage.setItem('theme', target);
+        }
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    </script>
 
     <header class="hero">
         <h1>Savor the Crunch</h1>

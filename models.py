@@ -13,7 +13,7 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='Customer') # Customer, Admin, SuperAdmin
     reset_token = db.Column(db.String(100), nullable=True)
-    loyalty_points = db.Column(db.Integer, default=0) # New Feature
+    loyalty_points = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     orders = db.relationship('Order', backref='customer', lazy=True)
@@ -29,7 +29,7 @@ class Product(db.Model):
     image_url = db.Column(db.String(255), nullable=True)
     description = db.Column(db.Text, nullable=True)
     tags = db.Column(db.String(255), nullable=True)
-    stock_level = db.Column(db.Integer, default=100) # New Feature
+    stock_level = db.Column(db.Integer, default=100)
     is_active = db.Column(db.Boolean, default=True)
 
     items = db.relationship('OrderItem', backref='product_ref', lazy=True)
@@ -48,8 +48,9 @@ class Order(db.Model):
     payment_method = db.Column(db.String(50), nullable=False)
     payment_status = db.Column(db.String(20), default='Unpaid')
     total_amount = db.Column(db.Float, nullable=False)
+    discount_amount = db.Column(db.Float, default=0.0) # New field for coupons
     total_cost = db.Column(db.Float, default=0.0)
-    status = db.Column(db.String(20), default='Pending') # Pending, Preparing, Out for Delivery, Completed, Cancelled
+    status = db.Column(db.String(20), default='Pending')
     scheduled_delivery_time = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -73,7 +74,7 @@ class Reservation(db.Model):
     status = db.Column(db.String(20), default='Confirmed')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-class Feedback(db.Model): # New Feature
+class Feedback(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=True)
@@ -82,14 +83,23 @@ class Feedback(db.Model): # New Feature
     comment = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-class Report(db.Model): # New Feature
+class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    item_type = db.Column(db.String(50), nullable=False) # e.g. "Order", "Product", "Feedback"
+    item_type = db.Column(db.String(50), nullable=False)
     item_id = db.Column(db.Integer, nullable=False)
     reason = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), default='Open') # Open, Resolved, Ignored
+    status = db.Column(db.String(20), default='Open')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+class Coupon(db.Model): # New Model
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(50), unique=True, nullable=False)
+    discount_type = db.Column(db.String(20), default='Percentage') # Percentage or Fixed
+    discount_value = db.Column(db.Float, nullable=False)
+    min_order_amount = db.Column(db.Float, default=0.0)
+    is_active = db.Column(db.Boolean, default=True)
+    valid_until = db.Column(db.DateTime, nullable=True)
 
 class Setting(db.Model):
     id = db.Column(db.Integer, primary_key=True)

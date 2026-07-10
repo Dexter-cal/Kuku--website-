@@ -8,7 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
-from models import db, User, Order, OrderItem, Product, Setting, Reservation, Feedback, Report
+from models import db, User, Order, OrderItem, Product, Setting, Reservation, Feedback, Report, Coupon
 from functools import wraps
 from dotenv import load_dotenv
 from sqlalchemy import or_, func
@@ -20,7 +20,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key_change_me')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB limit
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 # Mail Configuration
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
@@ -110,6 +110,9 @@ def seed_data():
         )
         db.session.add(admin)
 
+    if Coupon.query.filter_by(code='WELCOME20').first() is None:
+        db.session.add(Coupon(code='WELCOME20', discount_type='Percentage', discount_value=20, min_order_amount=500))
+
     db.session.commit()
 
 with app.app_context():
@@ -181,18 +184,14 @@ def forgot_password():
             token = secrets.token_urlsafe(32)
             user.reset_token = token
             db.session.commit()
-
             reset_url = url_for('reset_password', token=token, _external=True)
-
-            # Send Email
             msg = Message("Hope Kuku Shop - Password Reset", recipients=[user.email])
-            msg.body = f"Hello {user.first_name},\n\nYou requested a password reset. Click the link below to continue:\n\n{reset_url}\n\nIf you did not request this, please ignore this email."
+            msg.body = f"Hello {user.first_name},\n\nRequested password reset: {reset_url}"
             try:
                 mail.send(msg)
-                flash('Password reset link sent to your email.')
+                flash('Password reset link sent.')
             except Exception as e:
-                app.logger.error(f"Mail error: {e}")
-                flash(f'Error sending email. Development Reset Link: {reset_url}')
+                flash(f'Mail error. Reset Link (dev): {reset_url}')
         else:
             flash('Email not found.')
     return render_template('forgot_password.html')
@@ -223,22 +222,29 @@ def checkout():
         try:
             cart_data_raw = request.form.get('cart_data')
             scheduled_time_raw = request.form.get('scheduled_time')
+            coupon_code = request.form.get('coupon_code', '').strip().upper()
+
             if not cart_data_raw or cart_data_raw == '[]':
                 flash('Cart empty.')
                 return redirect(url_for('menu'))
 
             cart_items = json.loads(cart_data_raw)
-            total_amount = 0
-            total_cost = 0
-            verified_items = []
+            subtotal = sum(Product.query.get(item['id']).price * item['quantity'] for item in cart_items if Product.query.get(item['id']))
+            total_cost = sum(Product.query.get(item['id']).cost_price * item['quantity'] for item in cart_items if Product.query.get(item['id']))
 
-            for item in cart_items:
-                product = Product.query.get(item['id'])
-                if not product or not product.is_active:
-                    continue
-                total_amount += product.price * item['quantity']
-                total_cost += product.cost_price * item['quantity']
-                verified_items.append({'id': product.id, 'name': product.name, 'price': product.price, 'cost': product.cost_price, 'qty': item['quantity']})
+            # Coupon Logic
+            discount = 0.0
+            if coupon_code:
+                coupon = Coupon.query.filter_by(code=coupon_code, is_active=True).first()
+                if coupon and subtotal >= coupon.min_order_amount:
+                    if coupon.discount_type == 'Percentage':
+                        discount = subtotal * (coupon.discount_value / 100)
+                    else:
+                        discount = coupon.discount_value
+                else:
+                    flash('Invalid or ineligible coupon.')
+
+            final_total = subtotal - discount
 
             new_order = Order(
                 user_id=current_user.id,
@@ -250,24 +256,34 @@ def checkout():
                 city=request.form.get('city'),
                 country=request.form.get('country'),
                 payment_method=request.form.get('payment_method'),
-                total_amount=total_amount,
+                total_amount=final_total,
+                discount_amount=discount,
                 total_cost=total_cost,
                 scheduled_delivery_time=datetime.fromisoformat(scheduled_time_raw) if scheduled_time_raw else None
             )
             db.session.add(new_order)
-
-            # Loyalty Points: 1 point for every 100 KES spent
-            current_user.loyalty_points += int(total_amount / 100)
-
+            current_user.loyalty_points += int(final_total / 100)
             db.session.flush()
-            for item in verified_items:
-                db.session.add(OrderItem(order_id=new_order.id, product_id=item['id'], name=item['name'], price=item['price'], cost_at_time=item['cost'], quantity=item['qty']))
+
+            for item in cart_items:
+                p = Product.query.get(item['id'])
+                if p:
+                    db.session.add(OrderItem(order_id=new_order.id, product_id=p.id, name=p.name, price=p.price, cost_at_time=p.cost_price, quantity=item['quantity']))
+
             db.session.commit()
             return render_template('success.html', order=new_order)
         except Exception as e:
             db.session.rollback()
             flash('Error processing order.')
     return render_template('checkout.html')
+
+@app.route('/order/receipt/<int:order_id>')
+@login_required
+def order_receipt(order_id):
+    order = Order.query.get_or_404(order_id)
+    if order.user_id != current_user.id and current_user.role == 'Customer':
+        abort(403)
+    return render_template('receipt.html', order=order)
 
 @app.route('/book', methods=['GET', 'POST'])
 @login_required
@@ -290,28 +306,19 @@ def user_dashboard():
 @app.route('/feedback', methods=['POST'])
 @login_required
 def leave_feedback():
-    product_id = request.form.get('product_id')
-    order_id = request.form.get('order_id')
-    rating = int(request.form.get('rating', 5))
-    comment = request.form.get('comment')
-
-    new_fb = Feedback(user_id=current_user.id, product_id=product_id, order_id=order_id, rating=rating, comment=comment)
+    new_fb = Feedback(user_id=current_user.id, product_id=request.form.get('product_id'), order_id=request.form.get('order_id'), rating=int(request.form.get('rating', 5)), comment=request.form.get('comment'))
     db.session.add(new_fb)
     db.session.commit()
-    flash('Thank you for your feedback!')
+    flash('Feedback received!')
     return redirect(url_for('user_dashboard'))
 
 @app.route('/report', methods=['POST'])
 @login_required
 def report_item():
-    item_type = request.form.get('item_type')
-    item_id = request.form.get('item_id')
-    reason = request.form.get('reason')
-
-    new_report = Report(user_id=current_user.id, item_type=item_type, item_id=item_id, reason=reason)
+    new_report = Report(user_id=current_user.id, item_type=request.form.get('item_type'), item_id=request.form.get('item_id'), reason=request.form.get('reason'))
     db.session.add(new_report)
     db.session.commit()
-    flash('Report submitted. We will investigate.')
+    flash('Report submitted.')
     return redirect(url_for('user_dashboard'))
 
 # --- ADMIN ROUTES ---
@@ -320,60 +327,56 @@ def report_item():
 @role_required(['Admin', 'SuperAdmin'])
 def admin_orders():
     orders = Order.query.order_by(Order.created_at.desc()).all()
-    stats = {
-        'revenue': db.session.query(func.sum(Order.total_amount)).filter(Order.status != 'Cancelled').scalar() or 0,
-        'profit': (db.session.query(func.sum(Order.total_amount)).filter(Order.status != 'Cancelled').scalar() or 0) - (db.session.query(func.sum(Order.total_cost)).filter(Order.status != 'Cancelled').scalar() or 0),
-        'pending': Order.query.filter_by(status='Pending').count()
-    }
-    return render_template('orders.html', orders=orders, stats=stats)
+    reservations = Reservation.query.order_by(Reservation.reservation_time.desc()).all()
+    revenue = db.session.query(func.sum(Order.total_amount)).filter(Order.status != 'Cancelled').scalar() or 0
+    cost = db.session.query(func.sum(Order.total_cost)).filter(Order.status != 'Cancelled').scalar() or 0
+    stats = {'revenue': revenue, 'profit': revenue - cost, 'pending': Order.query.filter_by(status='Pending').count()}
+    return render_template('orders.html', orders=orders, reservations=reservations, stats=stats)
 
 @app.route('/admin/order/<int:order_id>/status', methods=['POST'])
 @role_required(['Admin', 'SuperAdmin'])
 def update_status(order_id):
     order = Order.query.get_or_404(order_id)
+    old_status = order.status
     order.status = request.form.get('status')
     order.payment_status = request.form.get('payment_status')
     db.session.commit()
+
+    # Notify Customer via Email on status change
+    if old_status != order.status:
+        msg = Message(f"Hope Kuku Shop - Order #{order.id} Status Update", recipients=[order.email])
+        msg.body = f"Hello {order.first_name},\n\nYour order status has been updated to: {order.status}.\n\nThank you for choosing Hope Kuku Shop!"
+        try:
+            mail.send(msg)
+        except:
+            pass
+
     flash('Order updated.')
     return redirect(url_for('admin_orders'))
 
 @app.route('/admin/customers')
 @role_required(['Admin', 'SuperAdmin'])
 def admin_customers():
-    customers = User.query.filter_by(role='Customer').all()
-    return render_template('admin_customers.html', customers=customers)
+    return render_template('admin_customers.html', customers=User.query.filter_by(role='Customer').all())
 
 @app.route('/admin/products')
 @role_required(['Admin', 'SuperAdmin'])
 def admin_products():
-    products = Product.query.all()
-    return render_template('admin_products.html', products=products)
+    return render_template('admin_products.html', products=Product.query.all())
 
 @app.route('/admin/product/add', methods=['GET', 'POST'])
 @role_required(['Admin', 'SuperAdmin'])
 def add_product():
     if request.method == 'POST':
-        image_url = request.form.get('image_url') # Default
-
+        image_url = request.form.get('image_url')
         if 'image_file' in request.files:
             file = request.files['image_file']
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 image_url = f'uploads/{filename}'
-
-        db.session.add(Product(
-            name=request.form.get('name'),
-            price=float(request.form.get('price')),
-            cost_price=float(request.form.get('cost_price')),
-            category=request.form.get('category'),
-            image_url=image_url,
-            tags=request.form.get('tags'),
-            description=request.form.get('description'),
-            stock_level=int(request.form.get('stock_level', 100))
-        ))
+        db.session.add(Product(name=request.form.get('name'), price=float(request.form.get('price')), cost_price=float(request.form.get('cost_price')), category=request.form.get('category'), image_url=image_url, tags=request.form.get('tags'), description=request.form.get('description'), stock_level=int(request.form.get('stock_level', 100))))
         db.session.commit()
-        flash('Product added!')
         return redirect(url_for('admin_products'))
     return render_template('product_form.html', action="Add")
 
@@ -388,9 +391,6 @@ def edit_product(product_id):
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 product.image_url = f'uploads/{filename}'
-        elif request.form.get('image_url'):
-             product.image_url = request.form.get('image_url')
-
         product.name, product.price, product.cost_price, product.category, product.tags, product.description, product.is_active = request.form.get('name'), float(request.form.get('price')), float(request.form.get('cost_price')), request.form.get('category'), request.form.get('tags'), request.form.get('description'), 'is_active' in request.form
         product.stock_level = int(request.form.get('stock_level', 100))
         db.session.commit()
@@ -402,19 +402,36 @@ def edit_product(product_id):
 @app.route('/super-admin')
 @role_required('SuperAdmin')
 def super_admin():
-    return render_template('super_admin.html',
-                           settings=Setting.query.all(),
-                           users=User.query.all(),
-                           feedbacks=Feedback.query.order_by(Feedback.created_at.desc()).all(),
-                           reports=Report.query.order_by(Report.created_at.desc()).all())
+    return render_template('super_admin.html', settings=Setting.query.all(), users=User.query.all(), feedbacks=Feedback.query.order_by(Feedback.created_at.desc()).all(), reports=Report.query.order_by(Report.created_at.desc()).all(), coupons=Coupon.query.all())
+
+@app.route('/super-admin/coupon/add', methods=['POST'])
+@role_required('SuperAdmin')
+def add_coupon():
+    db.session.add(Coupon(code=request.form.get('code').upper(), discount_type=request.form.get('discount_type'), discount_value=float(request.form.get('discount_value')), min_order_amount=float(request.form.get('min_order_amount', 0))))
+    db.session.commit()
+    flash('Coupon added!')
+    return redirect(url_for('super_admin'))
+
+@app.route('/super-admin/setting/update', methods=['POST'])
+@role_required('SuperAdmin')
+def update_setting():
+    key, value = request.form.get('key'), request.form.get('value')
+    s = Setting.query.filter_by(key=key).first()
+    if s: s.value = value
+    else: db.session.add(Setting(key=key, value=value))
+    db.session.commit()
+    flash('Setting updated!')
+    return redirect(url_for('super_admin'))
 
 @app.route('/super-admin/user/<int:user_id>/role', methods=['POST'])
 @role_required('SuperAdmin')
 def update_user_role(user_id):
     user = User.query.get_or_404(user_id)
-    user.role = request.form.get('role')
-    db.session.commit()
+    if user.id != current_user.id:
+        user.role = request.form.get('role')
+        db.session.commit()
     return redirect(url_for('super_admin'))
 
 if __name__ == '__main__':
-    app.run(debug=True, port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true', port=port)

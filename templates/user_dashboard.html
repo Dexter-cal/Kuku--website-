@@ -46,6 +46,7 @@
                     <div>
                         <strong>Order #{{ order.id }}</strong> - {{ order.created_at.strftime('%Y-%m-%d') }}
                         <p>{{ order.items|length }} items | Total: KES {{ order.total_amount }}</p>
+                        <a href="{{ url_for('order_receipt', order_id=order.id) }}" target="_blank" style="font-size:0.8rem; color:blue;">View Receipt</a>
                     </div>
                     <div>
                         <span class="status-badge status-{{ order.status|lower }}">{{ order.status }}</span>

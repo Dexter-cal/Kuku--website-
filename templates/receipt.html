@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Receipt #{{ order.id }} | Hope Kuku Shop</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; max-width: 400px; margin: 20px auto; padding: 20px; border: 1px solid #eee; }
+        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .row { display: flex; justify-content: space-between; margin: 5px 0; }
+        .total { border-top: 2px dashed #000; margin-top: 15px; padding-top: 10px; font-weight: bold; font-size: 1.2rem; }
+        .footer { text-align: center; margin-top: 30px; font-size: 0.8rem; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Hope Kuku Shop</h1>
+        <p>Mutarakwa Road, Kariobangi South</p>
+        <p>Order #{{ order.id }}</p>
+        <p>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+    </div>
+
+    <div class="items">
+        {% for item in order.items %}
+        <div class="row">
+            <span>{{ item.quantity }}x {{ item.name }}</span>
+            <span>KES {{ item.price * item.quantity }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if order.discount_amount > 0 %}
+    <div class="row" style="margin-top:10px; color:red;">
+        <span>Discount</span>
+        <span>-KES {{ order.discount_amount }}</span>
+    </div>
+    {% endif %}
+
+    <div class="total">
+        <div class="row">
+            <span>TOTAL</span>
+            <span>KES {{ order.total_amount }}</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Customer: {{ order.first_name }} {{ order.last_name }}</p>
+        <p>Payment: {{ order.payment_method }} ({{ order.payment_status }})</p>
+        <p>Thank you for your business!</p>
+    </div>
+
+    <div class="no-print" style="margin-top:20px; text-align:center;">
+        <button onclick="window.print()" style="padding:10px 20px; cursor:pointer;">Print Receipt</button>
+        <a href="{{ url_for('user_dashboard') }}" style="display:block; margin-top:10px;">Back to Dashboard</a>
+    </div>
+</body>
+</html>

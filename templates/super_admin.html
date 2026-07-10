@@ -26,6 +26,36 @@
     </nav>
 
     <div class="admin-grid">
+        <!-- Coupon Management -->
+        <div class="card" style="grid-column: span 2;">
+            <h3>Promo Codes & Coupons</h3>
+            <form action="{{ url_for('add_coupon') }}" method="POST" style="display:flex; gap:10px; margin-bottom:1rem;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="code" placeholder="CODE" required>
+                <select name="discount_type">
+                    <option value="Percentage">Percentage (%)</option>
+                    <option value="Fixed">Fixed Amount (KES)</option>
+                </select>
+                <input type="number" name="discount_value" placeholder="Value" required>
+                <input type="number" name="min_order_amount" placeholder="Min Order">
+                <button type="submit" class="btn btn-primary">Add Coupon</button>
+            </form>
+            <table>
+                <thead><tr><th>Code</th><th>Type</th><th>Value</th><th>Min Order</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for coupon in coupons %}
+                    <tr>
+                        <td>{{ coupon.code }}</td>
+                        <td>{{ coupon.discount_type }}</td>
+                        <td>{{ coupon.discount_value }}</td>
+                        <td>{{ coupon.min_order_amount }}</td>
+                        <td>{{ 'Active' if coupon.is_active else 'Expired' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <!-- Feedback Moderation -->
         <div class="card" style="grid-column: span 2;">
             <h3>User Feedback & Ratings</h3>
