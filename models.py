@@ -14,6 +14,9 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(20), default='Customer') # Customer, Admin, SuperAdmin
     reset_token = db.Column(db.String(100), nullable=True)
     loyalty_points = db.Column(db.Integer, default=0)
+    phone = db.Column(db.String(20), nullable=True)
+    address = db.Column(db.String(255), nullable=True)
+    city = db.Column(db.String(100), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     orders = db.relationship('Order', backref='customer', lazy=True)

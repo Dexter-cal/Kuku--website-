@@ -1,7 +1,7 @@
 import json
 import os
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -77,6 +77,17 @@ def role_required(roles):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
+def is_shop_open():
+    opening = Setting.query.filter_by(key='OPEN_TIME').first()
+    closing = Setting.query.filter_by(key='CLOSE_TIME').first()
+    if not opening or not closing:
+        return True # Default to open if not set
+
+    now = datetime.now().time()
+    open_time = datetime.strptime(opening.value, '%H:%M').time()
+    close_time = datetime.strptime(closing.value, '%H:%M').time()
+    return open_time <= now <= close_time
+
 def seed_data():
     if Product.query.first() is None:
         products = [
@@ -112,6 +123,10 @@ def seed_data():
 
     if Coupon.query.filter_by(code='WELCOME20').first() is None:
         db.session.add(Coupon(code='WELCOME20', discount_type='Percentage', discount_value=20, min_order_amount=500))
+
+    if Setting.query.filter_by(key='OPEN_TIME').first() is None:
+        db.session.add(Setting(key='OPEN_TIME', value='08:00', description='Shop Opening Time'))
+        db.session.add(Setting(key='CLOSE_TIME', value='22:00', description='Shop Closing Time'))
 
     db.session.commit()
 
@@ -215,9 +230,26 @@ def logout():
 
 # --- CUSTOMER ROUTES ---
 
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    if request.method == 'POST':
+        current_user.first_name = request.form.get('first_name')
+        current_user.last_name = request.form.get('last_name')
+        current_user.phone = request.form.get('phone')
+        current_user.address = request.form.get('address')
+        current_user.city = request.form.get('city')
+        db.session.commit()
+        flash('Profile updated!')
+    return render_template('profile.html')
+
 @app.route('/checkout', methods=['GET', 'POST'])
 @login_required
 def checkout():
+    if not is_shop_open():
+        flash('Sorry, the shop is currently closed. Please check our business hours.')
+        return redirect(url_for('menu'))
+
     if request.method == 'POST':
         try:
             cart_data_raw = request.form.get('cart_data')

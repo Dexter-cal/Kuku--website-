@@ -63,7 +63,8 @@
             <li><a href="{{ url_for('menu') }}">Menu</a></li>
             <li><a href="{{ url_for('book_table') }}">Book a Table</a></li>
             {% if current_user.is_authenticated %}
-                <li><a href="{{ url_for('user_dashboard') }}">My Dashboard</a></li>
+                <li><a href="{{ url_for('profile') }}">My Profile</a></li>
+                <li><a href="{{ url_for('user_dashboard') }}">My Orders</a></li>
                 <li><a href="{{ url_for('logout') }}">Logout</a></li>
             {% else %}
                 <li><a href="{{ url_for('login') }}">Login</a></li>
@@ -90,10 +91,10 @@
             <p>Select from our range of delicious meals.</p>
         </div>
 
-        <form action="{{ url_for('menu') }}" method="GET" class="search-container">
-            <input type="text" name="q" placeholder="Search (e.g. kuku, fries, meat...)" value="{{ query or '' }}">
-            <button type="submit" class="btn btn-primary" style="border-radius: 50px;">Search</button>
-        </form>
+        <div class="search-container">
+            <input type="text" id="liveSearch" placeholder="Live search (e.g. kuku, fries, meat...)" value="{{ query or '' }}" onkeyup="doLiveSearch()">
+            <a href="{{ url_for('menu') }}" class="btn" style="background:#eee;">Reset</a>
+        </div>
 
         <div class="filter-container">
             <button class="filter-btn active" onclick="filterMenu('all')">All</button>
@@ -123,6 +124,21 @@
 
     <script src="{{ url_for('static', filename='js/cart.js') }}"></script>
     <script>
+        function doLiveSearch() {
+            const query = document.getElementById('liveSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('.product-card');
+
+            cards.forEach(card => {
+                const name = card.querySelector('h3').textContent.toLowerCase();
+                const tags = card.dataset.category.toLowerCase();
+                if (name.includes(query) || tags.includes(query)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
         function filterMenu(category) {
             const items = document.querySelectorAll('.product-card');
             const btns = document.querySelectorAll('.filter-btn');
